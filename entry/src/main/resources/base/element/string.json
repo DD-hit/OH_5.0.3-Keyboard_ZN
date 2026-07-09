@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "中英文输入法"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "输入法设置"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "中文输入法"
+    },
+    {
+      "name": "ime_subtype_zh_pinyin",
+      "value": "中文拼音"
+    },
+    {
+      "name": "ime_subtype_en_us",
+      "value": "English (US)"
+    }
+  ]
+}

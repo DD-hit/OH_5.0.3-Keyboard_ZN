@@ -1,0 +1,18 @@
+{
+  "subtypes": [
+    {
+      "icon": "$media:startIcon",
+      "id": "zh-CN-pinyin",
+      "label": "$string:ime_subtype_zh_pinyin",
+      "locale": "zh-CN",
+      "mode": "upper"
+    },
+    {
+      "icon": "$media:startIcon",
+      "id": "en-US-qwerty",
+      "label": "$string:ime_subtype_en_us",
+      "locale": "en-US",
+      "mode": "upper"
+    }
+  ]
+}

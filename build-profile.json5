@@ -1,0 +1,56 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "material": {
+          "certpath": "/Users/dd/.ohos/config/openharmony/default_keyboard_ZN_HNu54_u5dWbLuVJIkb-BsrAq20TxNSv6vUSgI9Mc3xs=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BC9B5B4F64E0065525B41DBC699D514BE2877A98EADD445AA79C15B878068B0A429E9FB3076BD21",
+          "profile": "/Users/dd/.ohos/config/openharmony/default_keyboard_ZN_HNu54_u5dWbLuVJIkb-BsrAq20TxNSv6vUSgI9Mc3xs=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/dd/.ohos/config/openharmony/default_keyboard_ZN_HNu54_u5dWbLuVJIkb-BsrAq20TxNSv6vUSgI9Mc3xs=.p12",
+          "storePassword": "0000001BD4857DA7FFCC48A8FFA3A5DEEABD6A15634247013B8D65683724D6856F192103E997909E52CD59"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compileSdkVersion": "15",
+        "targetSdkVersion": "15",
+        "compatibleSdkVersion": "15",
+        "runtimeOS": "OpenHarmony",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

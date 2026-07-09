@@ -1,0 +1,6 @@
+{
+  "src": [
+    "pages/Index",
+    "inputmethodext/pages/KeyboardPage"
+  ]
+}
