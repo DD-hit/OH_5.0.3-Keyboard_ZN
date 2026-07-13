@@ -15,6 +15,9 @@ const KEY_H = 44;
 const ROW_GAP = 6;
 const KEY_GAP = 5;
 const KEY_RADIUS = 5;
+const DROPDOWN_CANDIDATE_H = 42;
+const DROPDOWN_BG = '#F0F0F5';
+const DROPDOWN_CANDIDATE_BG = '#FFFFFF';
 
 // ─── Key Definition ─────────────────────────────────────
 interface KeyDef {
@@ -138,13 +141,16 @@ const NUMBER_LAYOUT: KeyDef[][] = [
 @Entry
 @Component
 export struct KeyboardPage {
-  @Prop keyboardController: KeyboardController = new KeyboardController();
+  @Prop keyboardController: KeyboardController = KeyboardController.getInstance();
 
   @State pinyinBuffer: string = '';
   @State candidates: string[] = [];
   @State selectedIndex: number = 0;
   @State keyboardMode: number = 0;
   @State isUpper: boolean = false;
+  // Dropdown panel state
+  @State allCandidates: string[] = [];
+  @State showCandidateDropdown: boolean = false;
 
   aboutToAppear(): void {
     this.keyboardMode = this.keyboardController.keyboardMode;
@@ -158,22 +164,36 @@ export struct KeyboardPage {
       this.keyboardMode = mode;
       this.isUpper = false;
     };
+    this.keyboardController.onCandidatePanelStateChange = (allCands: string[], expanded: boolean) => {
+      this.allCandidates = allCands;
+      this.showCandidateDropdown = expanded;
+    };
   }
 
   aboutToDisappear(): void {
     this.keyboardController.onCandidatesUpdate = undefined;
     this.keyboardController.onModeChange = undefined;
+    this.keyboardController.onCandidatePanelStateChange = undefined;
   }
 
   // ─── Build ────────────────────────────────────────────
   build() {
-    Column() {
-      this.CandidateBar()
-      this.KeyRows()
+    Stack() {
+      Column() {
+        this.CandidateBar()
+        this.KeyRows()
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(BG_COLOR)
+
+      // Dropdown overlay for extra candidates
+      if (this.showCandidateDropdown) {
+        this.CandidateDropdownPanel()
+      }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(BG_COLOR)
   }
 
   // ─── Candidate Bar ────────────────────────────────────
@@ -220,12 +240,58 @@ export struct KeyboardPage {
       .scrollBar(BarState.Off)
       .layoutWeight(1)
       .align(Alignment.Start)
+
+      // Expand button for more candidates
+      if (this.allCandidates.length > this.candidates.length) {
+        Divider()
+          .vertical(true)
+          .height(20)
+          .color('#D1D3D9')
+          .margin({ left: 4, right: 4 })
+
+        Text(this.showCandidateDropdown ? '▲' : '▼')
+          .fontSize(11)
+          .fontColor('#8E8E93')
+          .padding({ left: 4, right: 8, top: 2, bottom: 4 })
+          .onClick(() => this.onToggleDropdown())
+      }
     }
     .width('100%')
     .height(CANDIDATE_ROW_H)
     .backgroundColor('#F8F8FA')
     .borderRadius({ topLeft: 6, topRight: 6 })
     .padding({ left: 4, right: 4, top: 6 })
+  }
+
+  // ─── Candidate Dropdown Panel ─────────────────────────
+  @Builder
+  CandidateDropdownPanel() {
+    Column() {
+      // Grid of all candidates
+      Scroll() {
+        Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+          ForEach(this.allCandidates, (candidate: string) => {
+            Text(candidate)
+              .fontSize(17)
+              .fontColor('#1A1A1A')
+              .height(DROPDOWN_CANDIDATE_H)
+              .padding({ left: 10, right: 10 })
+              .borderRadius(4)
+              .backgroundColor(DROPDOWN_CANDIDATE_BG)
+              .textAlign(TextAlign.Center)
+              .margin(4)
+              .onClick(() => this.onSelectDropdownCandidate(candidate))
+          })
+        }
+        .padding(8)
+        .width('100%')
+      }
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(DROPDOWN_BG)
   }
 
   // ─── Key Rows ─────────────────────────────────────────
@@ -342,7 +408,22 @@ export struct KeyboardPage {
     this.keyboardController.selectCandidate(candidate);
     this.pinyinBuffer = '';
     this.candidates = [];
+    this.allCandidates = [];
+    this.showCandidateDropdown = false;
     this.selectedIndex = 0;
+  }
+
+  private onSelectDropdownCandidate(candidate: string): void {
+    this.keyboardController.selectCandidate(candidate);
+    this.pinyinBuffer = '';
+    this.candidates = [];
+    this.allCandidates = [];
+    this.showCandidateDropdown = false;
+    this.selectedIndex = 0;
+  }
+
+  private onToggleDropdown(): void {
+    this.keyboardController.toggleCandidateDropdown();
   }
 
   private onHideKeyboard(): void {

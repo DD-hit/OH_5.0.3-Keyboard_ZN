@@ -21,10 +21,13 @@ export class KeyboardController {
   public isUpper: boolean = false;
   public pinyinBuffer: string = '';
   public candidates: string[] = [];
+  public allCandidates: string[] = [];
+  public isCandidatePanelExpanded: boolean = false;
 
   // UI callbacks
   public onCandidatesUpdate?: (pinyin: string, candidates: string[], selectedIndex: number) => void;
   public onModeChange?: (mode: number) => void;
+  public onCandidatePanelStateChange?: (allCandidates: string[], isExpanded: boolean) => void;
 
   private notifyCandidatesUpdate(): void {
     if (this.onCandidatesUpdate) {
@@ -125,10 +128,28 @@ export class KeyboardController {
   public updateCandidates(): void {
     if (this.pinyinBuffer.length > 0) {
       this.candidates = PinyinEngine.getCandidates(this.pinyinBuffer);
+      this.allCandidates = PinyinEngine.getAllCandidates(this.pinyinBuffer);
     } else {
       this.candidates = [];
+      this.allCandidates = [];
     }
+    // Dismiss dropdown when candidates change
+    this.isCandidatePanelExpanded = false;
     this.notifyCandidatesUpdate();
+    // Sync allCandidates to UI
+    if (this.onCandidatePanelStateChange) {
+      this.onCandidatePanelStateChange(this.allCandidates, this.isCandidatePanelExpanded);
+    }
+  }
+
+  /**
+   * Toggle the candidate dropdown panel. Dismisses if already open.
+   */
+  public toggleCandidateDropdown(): void {
+    this.isCandidatePanelExpanded = !this.isCandidatePanelExpanded;
+    if (this.onCandidatePanelStateChange) {
+      this.onCandidatePanelStateChange(this.allCandidates, this.isCandidatePanelExpanded);
+    }
   }
 
   /**
@@ -138,6 +159,8 @@ export class KeyboardController {
     this.insertText(candidate);
     this.pinyinBuffer = '';
     this.candidates = [];
+    this.allCandidates = [];
+    this.isCandidatePanelExpanded = false;
     this.notifyCandidatesUpdate();
   }
 
@@ -156,6 +179,8 @@ export class KeyboardController {
       this.insertText(this.pinyinBuffer);
       this.pinyinBuffer = '';
       this.candidates = [];
+      this.allCandidates = [];
+      this.isCandidatePanelExpanded = false;
       this.notifyCandidatesUpdate();
     }
     this.insertText(char);
@@ -201,6 +226,8 @@ export class KeyboardController {
       this.insertText(this.pinyinBuffer);
       this.pinyinBuffer = '';
       this.candidates = [];
+      this.allCandidates = [];
+      this.isCandidatePanelExpanded = false;
     }
     this.insertText('\n');
     this.notifyCandidatesUpdate();
@@ -255,6 +282,8 @@ export class KeyboardController {
       this.insertText(this.pinyinBuffer);
       this.pinyinBuffer = '';
       this.candidates = [];
+      this.allCandidates = [];
+      this.isCandidatePanelExpanded = false;
     }
   }
 
@@ -278,6 +307,8 @@ export class KeyboardController {
     }
     this.pinyinBuffer = '';
     this.candidates = [];
+    this.allCandidates = [];
+    this.isCandidatePanelExpanded = false;
     this.isUpper = false;
   }
 

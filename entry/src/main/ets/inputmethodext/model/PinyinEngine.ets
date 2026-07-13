@@ -482,6 +482,7 @@ export class PinyinEngine {
 
   /**
    * Convert pinyin input to candidate Chinese characters.
+   * Supports multi-syllable input with phrase-level prefix matching.
    */
   static getCandidates(pinyin: string): string[] {
     if (!pinyin || pinyin.length === 0) {
@@ -489,31 +490,302 @@ export class PinyinEngine {
     }
 
     const lower = pinyin.toLowerCase().trim();
-
-    // Try phrase matching
-    const phraseCandidates = PinyinEngine.phraseMap.get(lower);
-    const charCandidates = PinyinEngine.pinyinDict.get(lower);
-
     let results: string[] = [];
+
+    // 1. Exact phrase match (e.g., "women" → "我们")
+    const phraseCandidates = PinyinEngine.phraseMap.get(lower);
     if (phraseCandidates) {
       results = results.concat(phraseCandidates);
     }
+
+    // 2. Exact single-syllable match (e.g., "ni" → "你")
+    const charCandidates = PinyinEngine.pinyinDict.get(lower);
     if (charCandidates) {
       results = results.concat(charCandidates);
     }
 
-    // Try prefix matching for partial pinyin input
-    if (results.length === 0) {
-      const prefixMatches: string[] = [];
-      for (const key of PinyinEngine.pinyinDict.keys()) {
-        if (key.startsWith(lower)) {
-          const chars: string[] | undefined = PinyinEngine.pinyinDict.get(key);
-          if (chars) {
-            prefixMatches.push(...chars.slice(0, 2));
+    // 3. Phrase prefix matching (e.g., "wom" → "我们")
+    if (results.length < 10) {
+      for (const key of PinyinEngine.phraseMap.keys()) {
+        if (key.startsWith(lower) && key !== lower) {
+          const phrases: string[] | undefined = PinyinEngine.phraseMap.get(key);
+          if (phrases) {
+            results = results.concat(phrases);
+            if (results.length >= 5) {
+              break;
+            }
           }
         }
       }
-      results = prefixMatches.slice(0, 10);
+    }
+
+    // 4. Multi-syllable segmentation → combine into phrases
+    //    Complete+complete: "nihao" → "ni"+"hao" → "你好", "你号"
+    //    Complete+partial:  "nih"   → "ni"+"h"   → "你好", "你还"
+    if (results.length < 10 && lower.length >= 3) {
+      const combos = PinyinEngine.buildPhraseCombos(lower);
+      results = results.concat(combos);
+    }
+
+    // 5. Longest valid syllable prefix → single-char candidates
+    //    (e.g., "nih" → "ni" is valid → "你", "尼")
+    if (results.length < 10) {
+      for (let i = lower.length; i > 0; i--) {
+        const prefix = lower.substring(0, i);
+        const chars = PinyinEngine.pinyinDict.get(prefix);
+        if (chars) {
+          results = results.concat(chars.slice(0, 3));
+          break;
+        }
+      }
+    }
+
+    // 6. Single-character prefix matching for short/partial single syllable
+    //    (e.g., "n" → "那", "哪", "拿" from "na")
+    if (results.length < 10) {
+      for (const key of PinyinEngine.pinyinDict.keys()) {
+        if (key.startsWith(lower) && key !== lower) {
+          const chars: string[] | undefined = PinyinEngine.pinyinDict.get(key);
+          if (chars) {
+            results = results.concat(chars.slice(0, 2));
+            if (results.length >= 10) {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Deduplicate while preserving priority order
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const r of results) {
+      if (!seen.has(r)) {
+        seen.add(r);
+        unique.push(r);
+      }
+    }
+    return unique.slice(0, 10);
+  }
+
+  /**
+   * Return all candidates without the 10-item cap, for the dropdown "more" panel.
+   * Uses a generous limit (60) to cover most practical scenarios.
+   */
+  static getAllCandidates(pinyin: string): string[] {
+    if (!pinyin || pinyin.length === 0) {
+      return [];
+    }
+
+    const lower = pinyin.toLowerCase().trim();
+    let results: string[] = [];
+    const MAX = 60;
+
+    // 1. Exact phrase match
+    const phraseCandidates = PinyinEngine.phraseMap.get(lower);
+    if (phraseCandidates) {
+      results = results.concat(phraseCandidates);
+    }
+
+    // 2. Exact single-syllable match
+    const charCandidates = PinyinEngine.pinyinDict.get(lower);
+    if (charCandidates) {
+      results = results.concat(charCandidates);
+    }
+
+    // 3. Phrase prefix matching (more generous)
+    if (results.length < MAX) {
+      for (const key of PinyinEngine.phraseMap.keys()) {
+        if (key.startsWith(lower) && key !== lower) {
+          const phrases: string[] | undefined = PinyinEngine.phraseMap.get(key);
+          if (phrases) {
+            results = results.concat(phrases);
+            if (results.length >= MAX) {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Multi-syllable segmentation (more combinations)
+    if (results.length < MAX && lower.length >= 3) {
+      const combos = PinyinEngine.buildPhraseCombosExpanded(lower);
+      results = results.concat(combos);
+    }
+
+    // 5. Longest valid syllable prefix (more chars)
+    if (results.length < MAX) {
+      for (let i = lower.length; i > 0; i--) {
+        const prefix = lower.substring(0, i);
+        const chars = PinyinEngine.pinyinDict.get(prefix);
+        if (chars) {
+          results = results.concat(chars.slice(0, 6));
+          break;
+        }
+      }
+    }
+
+    // 6. Single-character prefix matching (more chars)
+    if (results.length < MAX) {
+      for (const key of PinyinEngine.pinyinDict.keys()) {
+        if (key.startsWith(lower) && key !== lower) {
+          const chars: string[] | undefined = PinyinEngine.pinyinDict.get(key);
+          if (chars) {
+            results = results.concat(chars.slice(0, 4));
+            if (results.length >= MAX) {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Deduplicate while preserving priority order
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const r of results) {
+      if (!seen.has(r)) {
+        seen.add(r);
+        unique.push(r);
+      }
+    }
+    return unique;
+  }
+
+  /**
+   * Check whether there are more candidates beyond the default 10 shown in the bar.
+   */
+  static hasExtraCandidates(pinyin: string): boolean {
+    return PinyinEngine.getAllCandidates(pinyin).length > 10;
+  }
+
+  /**
+   * Greedy split multi-syllable pinyin into valid syllables,
+   * then combine characters into phrase candidates.
+   *
+   * Case A — all complete syllables:
+   *   "nihao"  → "ni"+"hao"    → "你好", "你号"
+   *   "shijian"→ "shi"+"jian"  → "时间", "实践"
+   *   "jisuan" → "ji"+"suan"   → "计算", "几算"
+   *
+   * Case B — complete + partial last syllable:
+   *   "nih"    → "ni"+"h"      → combine "你" × chars matching "h" prefix
+   *   "wom"    → "wo"+"m"      → combine "我" × chars matching "m" prefix
+   */
+  /**
+   * Expanded version returning more phrase combos for the dropdown panel.
+   */
+  private static buildPhraseCombosExpanded(input: string): string[] {
+    const results: string[] = [];
+
+    // Case A: all complete syllables → direct character combination
+    for (let split = 2; split < input.length; split++) {
+      const first = input.substring(0, split);
+      const second = input.substring(split);
+      const firstChars = PinyinEngine.pinyinDict.get(first);
+      const secondChars = second.length <= 6 ? PinyinEngine.pinyinDict.get(second) : undefined;
+      if (firstChars && secondChars) {
+        for (const fc of firstChars.slice(0, 3)) {
+          for (const sc of secondChars.slice(0, 4)) {
+            results.push(fc + sc);
+            if (results.length >= 16) {
+              return results;
+            }
+          }
+        }
+        return results;
+      }
+    }
+
+    // Case B: complete + partial last syllable → prefix character lookup
+    for (let split = input.length - 1; split >= 2; split--) {
+      const first = input.substring(0, split);
+      const rest = input.substring(split);
+      const firstChars = PinyinEngine.pinyinDict.get(first);
+      if (firstChars) {
+        const restChars: string[] = [];
+        for (const key of PinyinEngine.pinyinDict.keys()) {
+          if (key.startsWith(rest)) {
+            const chars = PinyinEngine.pinyinDict.get(key);
+            if (chars) {
+              restChars.push(chars[0]);
+              if (restChars.length >= 10) {
+                break;
+              }
+            }
+          }
+        }
+        if (restChars.length > 0) {
+          for (const fc of firstChars.slice(0, 3)) {
+            for (const rc of restChars) {
+              results.push(fc + rc);
+              if (results.length >= 16) {
+                return results;
+              }
+            }
+          }
+          return results;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private static buildPhraseCombos(input: string): string[] {
+    const results: string[] = [];
+
+    // Case A: all complete syllables → direct character combination
+    for (let split = 2; split < input.length; split++) {
+      const first = input.substring(0, split);
+      const second = input.substring(split);
+      const firstChars = PinyinEngine.pinyinDict.get(first);
+      const secondChars = second.length <= 6 ? PinyinEngine.pinyinDict.get(second) : undefined;
+      if (firstChars && secondChars) {
+        for (const fc of firstChars.slice(0, 2)) {
+          for (const sc of secondChars.slice(0, 3)) {
+            results.push(fc + sc);
+            if (results.length >= 6) {
+              return results;
+            }
+          }
+        }
+        return results;
+      }
+    }
+
+    // Case B: complete + partial last syllable → prefix character lookup
+    for (let split = input.length - 1; split >= 2; split--) {
+      const first = input.substring(0, split);
+      const rest = input.substring(split);
+      const firstChars = PinyinEngine.pinyinDict.get(first);
+      if (firstChars) {
+        // Collect characters whose pinyin starts with the partial tail
+        const restChars: string[] = [];
+        for (const key of PinyinEngine.pinyinDict.keys()) {
+          if (key.startsWith(rest)) {
+            const chars = PinyinEngine.pinyinDict.get(key);
+            if (chars) {
+              restChars.push(chars[0]);
+              if (restChars.length >= 5) {
+                break;
+              }
+            }
+          }
+        }
+        if (restChars.length > 0) {
+          for (const fc of firstChars.slice(0, 2)) {
+            for (const rc of restChars) {
+              results.push(fc + rc);
+              if (results.length >= 6) {
+                return results;
+              }
+            }
+          }
+          return results;
+        }
+      }
     }
 
     return results;
